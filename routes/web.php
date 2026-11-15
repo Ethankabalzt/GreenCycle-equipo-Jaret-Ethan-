@@ -1,6 +1,11 @@
 <?php
 
-use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/', function () {
+    return response(
+        file_get_contents(public_path('index.html')),
+        200,
+        ['Content-Type' => 'text/html; charset=UTF-8'],
+    );
+})->name('home');
