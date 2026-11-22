@@ -14,6 +14,7 @@ class Purchase extends Model
         'shop_item_id',
         'quantity',
         'total_cost',
+        'idempotency_key',
         'purchased_at',
     ];
 

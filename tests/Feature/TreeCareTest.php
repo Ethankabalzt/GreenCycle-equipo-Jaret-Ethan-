@@ -22,7 +22,11 @@ class TreeCareTest extends TestCase
         $response = $this->postJson("/api/trees/{$tree->id}/care")
             ->assertOk()
             ->assertJsonPath('tree.progress', 1)
-            ->assertJsonPath('tree.health', 70);
+            ->assertJsonPath('tree.health', 70)
+            ->assertJsonStructure([
+                'message',
+                'tree' => ['id', 'level', 'health', 'progress', 'status', 'next_care_at'],
+            ]);
 
         $this->assertMatchesRegularExpression(
             '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/',
@@ -41,11 +45,19 @@ class TreeCareTest extends TestCase
 
         $this->postJson("/api/trees/{$tree->id}/care")->assertOk();
 
+        $tree->refresh();
+        $stateAfterCare = $tree->only(['progress', 'health', 'level', 'last_cared_at', 'next_care_at']);
+
         $this->postJson("/api/trees/{$tree->id}/care")
             ->assertStatus(409)
             ->assertJsonStructure(['error', 'next_care_at']);
 
-        $this->assertEquals(1, $tree->fresh()->progress);
+        $tree->refresh();
+        $this->assertEquals($stateAfterCare['progress'], $tree->progress);
+        $this->assertEquals($stateAfterCare['health'], $tree->health);
+        $this->assertEquals($stateAfterCare['level'], $tree->level);
+        $this->assertEquals($stateAfterCare['last_cared_at']?->toIso8601String(), $tree->last_cared_at?->toIso8601String());
+        $this->assertEquals($stateAfterCare['next_care_at']?->toIso8601String(), $tree->next_care_at?->toIso8601String());
         $this->assertDatabaseCount('cares', 1);
     }
 
@@ -105,5 +117,27 @@ class TreeCareTest extends TestCase
         Sanctum::actingAs($user);
 
         $this->postJson("/api/trees/{$tree->id}/care")->assertStatus(409);
+    }
+
+    public function test_arbol_cosechado_no_recibe_cuidados(): void
+    {
+        $user = User::factory()->create();
+        $tree = Tree::factory()->for($user)->create(['status' => Tree::HARVESTED]);
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/trees/{$tree->id}/care")->assertStatus(409);
+    }
+
+    public function test_la_salud_no_supera_100(): void
+    {
+        $user = User::factory()->create();
+        $tree = Tree::factory()->for($user)->create(['health' => 95]);
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/trees/{$tree->id}/care")
+            ->assertOk()
+            ->assertJsonPath('tree.health', 100);
+
+        $this->assertEquals(100, $tree->fresh()->health);
     }
 }

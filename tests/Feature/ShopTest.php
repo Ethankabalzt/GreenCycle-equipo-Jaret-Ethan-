@@ -122,4 +122,44 @@ class ShopTest extends TestCase
             'quantity' => 11,
         ])->assertUnprocessable();
     }
+
+    public function test_un_reintento_con_la_misma_clave_no_duplica_la_compra(): void
+    {
+        $user = User::factory()->create(['coins' => 500]);
+        $item = ShopItem::factory()->accelerator()->create(['cost' => 100]);
+        Sanctum::actingAs($user);
+
+        $payload = [
+            'shop_item_id' => $item->id,
+            'quantity' => 1,
+            'idempotency_key' => 'compra-123',
+        ];
+
+        $first = $this->postJson('/api/shop/purchases', $payload)
+            ->assertCreated()
+            ->assertJsonPath('coins', 400);
+
+        $second = $this->postJson('/api/shop/purchases', $payload)
+            ->assertOk()
+            ->assertJsonPath('purchase.id', $first->json('purchase.id'))
+            ->assertJsonPath('coins', 400);
+
+        $this->assertEquals(400, $user->fresh()->coins);
+        $this->assertDatabaseCount('purchases', 1);
+        $this->assertDatabaseHas('inventory_items', [
+            'user_id' => $user->id,
+            'shop_item_id' => $item->id,
+            'quantity' => 1,
+        ]);
+    }
+
+    public function test_un_usuario_no_autenticado_no_puede_comprar(): void
+    {
+        $item = ShopItem::factory()->accelerator()->create();
+
+        $this->postJson('/api/shop/purchases', [
+            'shop_item_id' => $item->id,
+            'quantity' => 1,
+        ])->assertUnauthorized();
+    }
 }

@@ -84,4 +84,14 @@ class HarvestTest extends TestCase
         $this->assertEquals(0, $intruder->fresh()->coins);
         $this->assertEquals(Tree::MATURE, $tree->fresh()->status);
     }
+
+    public function test_un_usuario_no_autenticado_no_puede_cosechar(): void
+    {
+        $tree = Tree::factory()->create([
+            'level' => Tree::MAX_LEVEL,
+            'status' => Tree::MATURE,
+        ]);
+
+        $this->postJson("/api/trees/{$tree->id}/harvest")->assertUnauthorized();
+    }
 }

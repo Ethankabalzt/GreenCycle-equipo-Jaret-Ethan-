@@ -135,7 +135,7 @@ Todas las rutas usan el prefijo `/api`. Las rutas protegidas requieren
 | POST | `/api/trees/{tree}/care` | Aplicar un cuidado. | Sí |
 | POST | `/api/trees/{tree}/harvest` | Cosechar un árbol maduro. | Sí |
 | GET | `/api/shop/items` | Catálogo de la tienda. | Sí |
-| POST | `/api/shop/purchases` | Comprar ítems. | Sí |
+| POST | `/api/shop/purchases` | Comprar ítems (acepta `idempotency_key` opcional). | Sí |
 | GET | `/api/inventory` | Inventario del usuario. | Sí |
 | POST | `/api/inventory/{inventoryItem}/use` | Usar un ítem sobre un árbol propio. | Sí |
 
@@ -191,7 +191,7 @@ Códigos relevantes:
 - Cada usuario tiene saldo `coins`.
 - Solo un árbol `MATURE` no cosechado puede cosecharse.
 - La cosecha es única: acredita `seed_types.harvest_coins`, marca el árbol como `HARVESTED` y guarda `harvested_at`.
-- La compra descuenta monedas, valida saldo, registra la compra y acumula el ítem en inventario.
+- La compra descuenta monedas, valida saldo, registra la compra y acumula el ítem en inventario. Un reintento con la misma `idempotency_key` no duplica la compra.
 
 ### Ítems y efectos
 
