@@ -22,7 +22,7 @@ class TreeController extends Controller
     {
         Gate::authorize('view', $tree);
 
-        return new TreeResource($tree->load('seedType'));
+        return new TreeResource($tree->load(['seedType', 'activeEffects.shopItem']));
     }
 
     public function store(StoreTreeRequest $request): TreeResource

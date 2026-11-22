@@ -1,16 +1,16 @@
 # GreenCycle
 
 Aplicación web gamificada para administrar un vivero digital. Cada persona usuaria
-autenticada puede plantar árboles, cuidarlos, hacerlos crecer y —a partir del
-Sprint 3— cosecharlos, comprar ítems y administrar su inventario.
+autenticada puede plantar árboles, cuidarlos, hacerlos crecer, cosecharlos,
+comprar ítems y administrar su inventario.
 
 Proyecto del curso **TM4100**.
 
 ## Estado del proyecto
 
-- Sprint 1: autenticación con Laravel Sanctum, CRUD básico de árboles y frontend.
-- Sprint 2: cuidado de árboles con cooldown, salud, progreso, niveles y estado `MATURE`.
-- Sprint 3: economía, cosecha, tienda, inventario, mejoras y despliegue en Render.
+- **Sprint 1:** autenticación con Laravel Sanctum, CRUD básico de árboles y frontend.
+- **Sprint 2:** cuidado de árboles con cooldown, salud, progreso, niveles y estado `MATURE`.
+- **Sprint 3:** economía (monedas), cosecha única, tienda, inventario, efectos/mejoras, deterioro programado y frontend integrado.
 
 El código del Sprint 2 fue migrado a este repositorio desde la rama `Sprint-2`
 del repositorio histórico `Ethankabalzt/GreenCycle`.
@@ -19,7 +19,7 @@ del repositorio histórico `Ethankabalzt/GreenCycle`.
 
 - PHP 8.5 y Laravel 13.
 - Laravel Sanctum para tokens de API.
-- Blade, HTML, CSS y JavaScript con Fetch API.
+- HTML, CSS y JavaScript con Fetch API.
 - Vite.
 - PostgreSQL en Neon.
 - PHPUnit y Laravel Pint.
@@ -66,7 +66,11 @@ Configurar en `.env` la cadena **directa** de la rama `development` de Neon:
 DB_CONNECTION=pgsql
 DB_URL="postgresql://...development..."
 DB_SSLMODE=require
+DEMO_PASSWORD="una-clave-demo-local"
 ```
+
+> `DEMO_PASSWORD` la usa el seeder para crear la cuenta demo local/desarrollo.
+> No se publica ni se versiona.
 
 Comprobar la conexión antes de migrar:
 
@@ -93,40 +97,49 @@ La aplicación queda disponible en `http://greencycle-sprint3.test`.
 
 ## Cuenta demo
 
-El seeder crea la cuenta `demo@greencycle.test` y un árbol inicial. La contraseña
-se entrega por el medio privado indicado por la persona docente y no se publica
-en este repositorio.
+Si `DEMO_PASSWORD` está definida al ejecutar el seeder, se crea la cuenta
+`demo@greencycle.test` con 500 monedas, un árbol activo y un árbol maduro listo
+para cosechar. La contraseña se entrega por un medio privado y no se publica en
+este repositorio.
 
 ## Modelo de datos
 
 | Tabla | Propósito |
 |---|---|
-| `users` | Cuentas y autenticación. |
-| `seed_types` | Catálogo de tipos de semilla y recompensa de cosecha. |
-| `trees` | Árboles: nivel, salud, progreso, estado, cooldown y cosecha. |
+| `users` | Cuentas, autenticación y saldo de monedas (`coins`). |
+| `seed_types` | Catálogo de semillas: cuidados por nivel y recompensa de cosecha. |
+| `trees` | Árboles: nivel, salud, progreso, estado, cooldown, deterioro y cosecha. |
 | `cares` | Historial de cuidados aplicados. |
-| `shop_items` | Catálogo de la tienda (Sprint 3). |
-| `inventory_items` | Ítems por usuario (Sprint 3). |
-| `purchases` | Compras realizadas (Sprint 3). |
-| `active_effects` | Efectos activos sobre árboles (Sprint 3). |
+| `shop_items` | Catálogo de la tienda: tipo, costo, valor/duración de efecto. |
+| `inventory_items` | Ítems por usuario; único por `(user_id, shop_item_id)`. |
+| `purchases` | Historial de compras. |
+| `active_effects` | Efectos activos aplicados a árboles. |
+
+Estados de árbol: `ACTIVE`, `MATURE`, `HARVESTED`, `DEAD`.
 
 ## API
 
-Todas las rutas usan el prefijo `/api` y las rutas protegidas requieren
+Todas las rutas usan el prefijo `/api`. Las rutas protegidas requieren
 `Authorization: Bearer <token>`.
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| POST | `/api/auth/register` | Registrar usuario. |
-| POST | `/api/auth/login` | Iniciar sesión y obtener token. |
-| POST | `/api/auth/logout` | Cerrar la sesión actual. |
-| GET | `/api/user` | Usuario autenticado. |
-| GET | `/api/trees` | Árboles del usuario. |
-| POST | `/api/trees` | Plantar un árbol. |
-| GET | `/api/trees/{tree}` | Detalle de un árbol propio. |
-| POST | `/api/trees/{tree}/care` | Aplicar un cuidado. |
+| Método | Ruta | Descripción | Auth |
+|---|---|---|---|
+| POST | `/api/auth/register` | Registrar usuario. | No |
+| POST | `/api/auth/login` | Iniciar sesión y obtener token. | No |
+| POST | `/api/auth/logout` | Cerrar la sesión actual. | Sí |
+| GET | `/api/user` | Usuario autenticado (incluye `coins`). | Sí |
+| GET | `/api/seed-types` | Catálogo de tipos de semilla. | Sí |
+| GET | `/api/trees` | Árboles del usuario. | Sí |
+| POST | `/api/trees` | Plantar un árbol. | Sí |
+| GET | `/api/trees/{tree}` | Detalle de un árbol propio. | Sí |
+| POST | `/api/trees/{tree}/care` | Aplicar un cuidado. | Sí |
+| POST | `/api/trees/{tree}/harvest` | Cosechar un árbol maduro. | Sí |
+| GET | `/api/shop/items` | Catálogo de la tienda. | Sí |
+| POST | `/api/shop/purchases` | Comprar ítems. | Sí |
+| GET | `/api/inventory` | Inventario del usuario. | Sí |
+| POST | `/api/inventory/{inventoryItem}/use` | Usar un ítem sobre un árbol propio. | Sí |
 
-Respuesta de cuidado:
+### Ejemplo: cuidado
 
 ```json
 {
@@ -142,20 +155,57 @@ Respuesta de cuidado:
 }
 ```
 
+### Ejemplo: cosecha
+
+```json
+{
+  "message": "Cosecha completada con éxito",
+  "reward": 100,
+  "coins": 600,
+  "tree": {
+    "id": 2,
+    "status": "HARVESTED"
+  }
+}
+```
+
 Códigos relevantes:
 
 - `401`: no autenticado.
 - `403`: el recurso pertenece a otra persona.
-- `409`: cooldown activo o estado terminal.
+- `409`: regla de negocio inválida (cooldown, estado, saldo, cosecha repetida, etc.).
 - `422`: datos inválidos.
 
-## Reglas de cuidado
+## Reglas de negocio
 
-- Un árbol en estado `DEAD` o `MATURE` no recibe más cuidados.
-- Si `next_care_at` está en el futuro, la petición se rechaza sin modificar datos.
+### Cuidado y crecimiento
+
+- Un árbol en estado `DEAD`, `MATURE` o `HARVESTED` no recibe cuidados.
+- Si `next_care_at` está en el futuro, el cuidado se rechaza sin modificar datos.
 - Un cuidado válido suma progreso y recupera salud sin superar 100.
 - Al completar los cuidados del nivel, el nivel sube y el progreso vuelve a 0.
 - Al llegar al nivel 10, el árbol pasa a `MATURE`.
+
+### Economía y cosecha
+
+- Cada usuario tiene saldo `coins`.
+- Solo un árbol `MATURE` no cosechado puede cosecharse.
+- La cosecha es única: acredita `seed_types.harvest_coins`, marca el árbol como `HARVESTED` y guarda `harvested_at`.
+- La compra descuenta monedas, valida saldo, registra la compra y acumula el ítem en inventario.
+
+### Ítems y efectos
+
+- `ACCELERATOR`: reduce/elimina el cooldown pendiente del cuidado.
+- `FERTILIZER`: suma progreso y puede provocar subidas de nivel o madurez.
+- `PROTECTOR`: crea un efecto activo con duración; evita deterioro mientras esté vigente y no se permite duplicado simultáneo.
+- Los ítems solo se aplican a árboles propios en estado `ACTIVE`.
+
+### Deterioro programado
+
+- `trees:apply-decay`: aplica deterioro a árboles `ACTIVE` sin protector activo, por intervalos transcurridos. Si la salud llega a 0, el árbol pasa a `DEAD`.
+- `effects:release-expired`: desactiva efectos vencidos.
+
+El scheduler de Laravel ejecuta ambos comandos cada hora (ver `bootstrap/app.php`).
 
 ## Comprobaciones
 
@@ -194,7 +244,12 @@ Configuración obligatoria:
 - Rama `main`
 - Runtime Docker
 
-El script `scripts/render-start.sh` aplica las migraciones y arranca FrankenPHP.
+El script `scripts/render-start.sh` ejecuta `php artisan migrate --force`,
+optimiza la aplicación y arranca FrankenPHP. **No ejecutar `migrate:fresh` en
+producción.**
+
+Para la cuenta demo en producción, definir `DEMO_PASSWORD` solo si se desea
+sembrar/gestionar la cuenta por un proceso controlado; no publicar el valor.
 
 ## Seguridad
 
@@ -226,8 +281,14 @@ git check-ignore .env
 
 ## Uso de IA y recursos externos
 
-Documentar aquí las herramientas de IA utilizadas y los recursos consultados por
-el equipo antes de la entrega final.
+- **OpenCode / agente de IA:** apoyo para implementar, depurar, probar y documentar
+  funcionalidades del Sprint 3. Todo el código y la documentación generados fueron
+  revisados y validados por el equipo antes de integrarse.
+- **Recursos externos:** documentación oficial de Laravel, Laravel Sanctum,
+  PHPUnit, PostgreSQL/Neon, Render y GitHub Actions.
+
+El equipo debe revisar y complementar esta sección si se utilizaron otras
+herramientas o fuentes durante la entrega final.
 
 ## Equipo
 

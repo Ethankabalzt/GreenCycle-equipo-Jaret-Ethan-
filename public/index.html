@@ -487,6 +487,124 @@
             margin-bottom: 12px;
         }
 
+        /* ---------- Economía, tienda e inventario ---------- */
+        .coin-pill {
+            display: inline-block;
+            background: #fff7e0;
+            color: #8a5a00;
+            border: 1px solid #f0d68a;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: .85rem;
+        }
+
+        .dash-user-line {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .dash-user-line p {
+            margin: 0;
+        }
+
+        .btn-accent {
+            background: #b7791f;
+            color: var(--blanco);
+        }
+
+        .btn-small {
+            padding: 7px 11px;
+            font-size: .8rem;
+        }
+
+        .tree-card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .tree-card-actions .btn {
+            flex: 1;
+        }
+
+        .small {
+            font-size: .78rem;
+        }
+
+        .modal-wide {
+            max-width: 660px;
+        }
+
+        .shop-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .shop-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            border: 1px solid var(--borde);
+            border-radius: 10px;
+            padding: 12px;
+            background: var(--blanco);
+        }
+
+        .shop-item h4 {
+            margin: 0;
+            font-size: .98rem;
+        }
+
+        .shop-item .price {
+            font-weight: 700;
+            color: #8a5a00;
+            font-size: .85rem;
+        }
+
+        .shop-item .desc {
+            margin: 0;
+            font-size: .82rem;
+            color: var(--texto-suave);
+            flex: 1;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .item-actions select {
+            flex: 1;
+            min-width: 0;
+            padding: 7px 8px;
+            border: 1px solid var(--borde);
+            border-radius: 8px;
+            font-size: .82rem;
+            background: var(--blanco);
+        }
+
+        .effects-list {
+            list-style: none;
+            padding: 0;
+            margin: 6px 0 0;
+            font-size: .82rem;
+        }
+
+        .effects-list li {
+            padding: 4px 0;
+            border-bottom: 1px dashed var(--gris-suave);
+        }
+
+        .effects-list li:last-child {
+            border-bottom: none;
+        }
+
         /* ---------- Pie ---------- */
         .site-footer {
             text-align: center;
@@ -582,10 +700,15 @@
         <header class="dash-header card">
             <div>
                 <h2>Mi vivero</h2>
-                <p id="dash-user" class="muted">Cargando usuario...</p>
+                <div class="dash-user-line">
+                    <p id="dash-user" class="muted">Cargando usuario...</p>
+                    <span id="dash-coins" class="coin-pill">— monedas</span>
+                </div>
             </div>
             <div class="dash-actions">
                 <button id="btn-plant" class="btn btn-primary" type="button">+ Plantar árbol</button>
+                <button id="btn-shop" class="btn btn-ghost" type="button">Tienda</button>
+                <button id="btn-inventory" class="btn btn-ghost" type="button">Inventario</button>
                 <button id="btn-logout" class="btn btn-ghost" type="button">Cerrar sesión</button>
             </div>
         </header>
@@ -611,14 +734,38 @@
                 <div class="form-group">
                     <label for="plant-seed">Tipo de semilla</label>
                     <select id="plant-seed">
-                        <option value="1">Árbol básico (id 1)</option>
-                        <option value="2">Semilla especial (id 2)</option>
+                        <option value="">Cargando catálogo...</option>
                     </select>
                     <small class="field-error" data-for="seed_type_id"></small>
-                    <p class="hint">Sprint 1: el catálogo de semillas aún no tiene endpoint; estos son los IDs del seeder.</p>
                 </div>
                 <button type="submit" class="btn btn-primary btn-block">Plantar</button>
             </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL TIENDA ==================== -->
+    <div id="modal-shop" class="modal-backdrop" hidden>
+        <div class="modal modal-wide">
+            <button type="button" class="modal-close" data-close aria-label="Cerrar">&times;</button>
+            <h3>Tienda</h3>
+            <p class="muted">Saldo: <span id="shop-coins" class="coin-pill">— monedas</span></p>
+            <div id="shop-banner" class="banner" hidden></div>
+            <div id="shop-list" class="shop-grid">
+                <span class="spinner"></span>Cargando...
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL INVENTARIO ==================== -->
+    <div id="modal-inventory" class="modal-backdrop" hidden>
+        <div class="modal modal-wide">
+            <button type="button" class="modal-close" data-close aria-label="Cerrar">&times;</button>
+            <h3>Inventario</h3>
+            <p class="muted">Saldo: <span id="inventory-coins" class="coin-pill">— monedas</span></p>
+            <div id="inventory-banner" class="banner" hidden></div>
+            <div id="inventory-list" class="shop-grid">
+                <span class="spinner"></span>Cargando...
+            </div>
         </div>
     </div>
 
@@ -642,6 +789,11 @@
         /* ---------------- Estado ---------------- */
         const state = {
             token: localStorage.getItem('greencycle_token') || '',
+            user: null,
+            trees: [],
+            shopItems: [],
+            inventory: [],
+            detalleId: null,
         };
 
         const $ = (sel) => document.querySelector(sel);
@@ -712,6 +864,20 @@
                 hour: '2-digit',
                 minute: '2-digit',
             });
+        }
+
+        // Los recursos pueden venir como arreglo o envueltos en { data: [] }.
+        function lista(data) {
+            if (Array.isArray(data)) return data;
+            if (data && Array.isArray(data.data)) return data.data;
+            return [];
+        }
+
+        function objeto(data) {
+            if (data && typeof data === 'object' && data.data && typeof data.data === 'object') {
+                return data.data;
+            }
+            return data;
         }
 
         function tituloEstado(status) {
@@ -858,11 +1024,26 @@
         }
 
         /* ---------------- Dashboard ---------------- */
+        function actualizarCoins(coins) {
+            if (typeof coins !== 'number') return;
+            if (state.user) state.user.coins = coins;
+
+            const dash = $('#dash-coins');
+            if (dash) dash.textContent = coins + ' monedas';
+
+            ['#shop-coins', '#inventory-coins'].forEach((sel) => {
+                const el = $(sel);
+                if (el) el.textContent = coins + ' monedas';
+            });
+        }
+
         async function cargarUsuario() {
             const res = await api('/api/user');
             if (res.ok && res.data) {
-                const u = res.data;
-                $('#dash-user').textContent = u.name + ' · ' + u.email + (typeof u.coins === 'number' ? (' · ' + u.coins + ' monedas') : '');
+                const u = objeto(res.data);
+                state.user = u;
+                $('#dash-user').textContent = u.name + ' · ' + u.email;
+                actualizarCoins(typeof u.coins === 'number' ? u.coins : 0);
             } else {
                 $('#dash-user').textContent = 'No se pudo cargar el usuario.';
             }
@@ -888,7 +1069,8 @@
                 return;
             }
 
-            const arboles = Array.isArray(res.data) ? res.data : [];
+            const arboles = lista(res.data);
+            state.trees = arboles;
 
             if (arboles.length === 0) {
                 grid.innerHTML = '<div class="empty-state">Aún no posees árboles plantados</div>';
@@ -898,11 +1080,39 @@
             grid.innerHTML = arboles.map(cardHtml).join('');
         }
 
+        function nombreArbol(a) {
+            return (a.seed_type && a.seed_type.name ? a.seed_type.name : 'Árbol') + ' #' + a.id;
+        }
+
+        function accionesArbolHtml(a) {
+            if (a.status === 'ACTIVE') {
+                const esperando = a.next_care_at && new Date(a.next_care_at).getTime() > Date.now();
+                const boton = esperando
+                    ? '<button class="btn btn-ghost btn-small" type="button" disabled>En espera</button>'
+                    : '<button class="btn btn-primary btn-small" type="button" data-action="care" data-tree-id="' + a.id + '">Cuidar</button>';
+                const aviso = esperando
+                    ? '<p class="muted small">Próximo cuidado: ' + formatearFecha(a.next_care_at) + '</p>'
+                    : '';
+                return '<div class="tree-card-actions">' + boton + '</div>' + aviso;
+            }
+
+            if (a.status === 'MATURE') {
+                const premio = a.seed_type && typeof a.seed_type.harvest_coins === 'number'
+                    ? ' +' + a.seed_type.harvest_coins
+                    : '';
+                return '<div class="tree-card-actions">' +
+                    '<button class="btn btn-accent btn-small" type="button" data-action="harvest" data-tree-id="' + a.id + '">Cosechar' + premio + '</button>' +
+                    '</div>';
+            }
+
+            return '';
+        }
+
         function cardHtml(a) {
             return (
                 '<article class="tree-card" data-tree-id="' + a.id + '" tabindex="0" role="button" aria-label="Ver detalle del árbol ' + a.id + '">' +
                     '<div class="tree-card-head">' +
-                        '<strong>Árbol #' + a.id + '</strong>' +
+                        '<strong>' + nombreArbol(a) + '</strong>' +
                         badgeHtml(a.status) +
                     '</div>' +
                     '<div class="tree-stats">' +
@@ -912,6 +1122,7 @@
                     '</div>' +
                     barraHtml('Salud', a.health, 'health') +
                     barraHtml('Progreso', a.progress, 'progress') +
+                    accionesArbolHtml(a) +
                 '</article>'
             );
         }
@@ -920,6 +1131,7 @@
             showView('dashboard');
             cargarUsuario();
             cargarArboles();
+            cargarTiposSemilla();
         }
 
         async function cerrarSesion() {
@@ -936,12 +1148,37 @@
         }
 
         /* ---------------- Plantar ---------------- */
+        async function cargarTiposSemilla() {
+            const select = $('#plant-seed');
+            const res = await api('/api/seed-types');
+
+            if (!res.ok) {
+                select.innerHTML = '<option value="">No se pudo cargar el catálogo</option>';
+                return;
+            }
+
+            const tipos = lista(res.data);
+            if (tipos.length === 0) {
+                select.innerHTML = '<option value="">Sin tipos de semilla</option>';
+                return;
+            }
+
+            select.innerHTML = tipos.map((tipo) =>
+                '<option value="' + tipo.id + '">' + tipo.name +
+                ' — ' + tipo.cares_by_level + ' cuidados/nivel · ' + tipo.harvest_coins + ' monedas</option>'
+            ).join('');
+        }
+
         function abrirModalPlantar() {
             const form = $('#form-plant');
             form.reset();
             limpiarErrores(form);
             ocultarBanner($('#plant-banner'));
             $('#modal-plant').hidden = false;
+
+            if (!$('#plant-seed').value) {
+                cargarTiposSemilla();
+            }
         }
 
         $('#form-plant').addEventListener('submit', async (e) => {
@@ -955,10 +1192,18 @@
             limpiarErrores(form);
             btn.disabled = true;
 
+            const seedTypeId = Number($('#plant-seed').value);
+
+            if (!seedTypeId) {
+                mostrarBanner(banner, 'Selecciona un tipo de semilla.', 'error');
+                btn.disabled = false;
+                return;
+            }
+
             try {
                 const res = await api('/api/trees', {
                     method: 'POST',
-                    body: { seed_type_id: Number($('#plant-seed').value) },
+                    body: { seed_type_id: seedTypeId },
                 });
 
                 if (res.ok) {
@@ -980,11 +1225,195 @@
             }
         });
 
+        /* ---------------- Cuidado, cosecha y economía ---------------- */
+        function mensajeError(res, porDefecto) {
+            if (res && res.data) {
+                return res.data.error || res.data.message || porDefecto;
+            }
+            return porDefecto;
+        }
+
+        function bannerParaArbol(id) {
+            const modal = $('#modal-detail');
+            const enDetalle = !modal.hidden && String(state.detalleId) === String(id);
+            return {
+                el: enDetalle ? $('#detail-banner') : $('#dash-banner'),
+                recargarDetalle: enDetalle,
+            };
+        }
+
+        async function cuidarArbol(id) {
+            const objetivo = bannerParaArbol(id);
+            ocultarBanner(objetivo.el);
+
+            const res = await api('/api/trees/' + id + '/care', { method: 'POST' });
+
+            if (res.ok) {
+                const tree = res.data && res.data.tree;
+                const extra = tree && tree.status === 'MATURE'
+                    ? ' El árbol está maduro y listo para cosechar.'
+                    : '';
+                mostrarBanner(objetivo.el, 'Cuidado aplicado con éxito.' + extra, 'success');
+                await cargarArboles();
+                if (objetivo.recargarDetalle) await abrirDetalle(id);
+            } else {
+                mostrarBanner(objetivo.el, mensajeError(res, 'No se pudo cuidar el árbol.'), 'error');
+            }
+        }
+
+        async function cosecharArbol(id) {
+            if (!window.confirm('¿Cosechar este árbol? Solo puede cosecharse una vez.')) return;
+
+            const objetivo = bannerParaArbol(id);
+            ocultarBanner(objetivo.el);
+
+            const res = await api('/api/trees/' + id + '/harvest', { method: 'POST' });
+
+            if (res.ok) {
+                actualizarCoins(res.data && res.data.coins);
+                mostrarBanner(objetivo.el, 'Cosecha completada: +' + res.data.reward + ' monedas.', 'success');
+                await cargarArboles();
+                if (objetivo.recargarDetalle) await abrirDetalle(id);
+            } else {
+                mostrarBanner(objetivo.el, mensajeError(res, 'No se pudo cosechar el árbol.'), 'error');
+            }
+        }
+
+        /* ---------------- Tienda ---------------- */
+        function shopItemHtml(item) {
+            return (
+                '<article class="shop-item">' +
+                    '<h4>' + item.name + '</h4>' +
+                    '<span class="price">' + item.cost + ' monedas</span>' +
+                    '<p class="desc">' + (item.description || '') + '</p>' +
+                    '<div class="item-actions">' +
+                        '<button class="btn btn-primary btn-small btn-block" type="button" data-buy="' + item.id + '">Comprar</button>' +
+                    '</div>' +
+                '</article>'
+            );
+        }
+
+        async function abrirTienda() {
+            $('#modal-shop').hidden = false;
+            ocultarBanner($('#shop-banner'));
+            actualizarCoins(state.user && typeof state.user.coins === 'number' ? state.user.coins : 0);
+
+            const cont = $('#shop-list');
+            cont.innerHTML = '<span class="spinner"></span>Cargando...';
+
+            const res = await api('/api/shop/items');
+
+            if (!res.ok) {
+                cont.innerHTML = '';
+                mostrarBanner($('#shop-banner'), mensajeError(res, 'No se pudo cargar la tienda.'), 'error');
+                return;
+            }
+
+            state.shopItems = lista(res.data);
+            cont.innerHTML = state.shopItems.length
+                ? state.shopItems.map(shopItemHtml).join('')
+                : '<p class="muted">La tienda está vacía.</p>';
+        }
+
+        async function comprarItem(id) {
+            const res = await api('/api/shop/purchases', {
+                method: 'POST',
+                body: { shop_item_id: Number(id), quantity: 1 },
+            });
+
+            const banner = $('#shop-banner');
+
+            if (res.ok) {
+                actualizarCoins(res.data && res.data.coins);
+                mostrarBanner(banner, 'Compra realizada. Revisa tu inventario.', 'success');
+            } else {
+                mostrarBanner(banner, mensajeError(res, 'No se pudo completar la compra.'), 'error');
+            }
+        }
+
+        /* ---------------- Inventario ---------------- */
+        function arbolesActivos() {
+            return state.trees.filter((t) => t.status === 'ACTIVE');
+        }
+
+        function inventoryItemHtml(inv) {
+            const item = inv.shop_item || {};
+            const activos = arbolesActivos();
+            const opciones = activos.map((t) =>
+                '<option value="' + t.id + '">' + nombreArbol(t) + '</option>'
+            ).join('');
+            const deshabilitado = activos.length === 0 ? ' disabled' : '';
+
+            return (
+                '<article class="shop-item">' +
+                    '<h4>' + (item.name || 'Ítem') + ' <span class="muted">×' + inv.quantity + '</span></h4>' +
+                    '<p class="desc">' + (item.description || '') + '</p>' +
+                    '<div class="item-actions">' +
+                        '<select data-use-select="' + inv.id + '"' + deshabilitado + '>' +
+                            (activos.length ? opciones : '<option value="">Sin árboles activos</option>') +
+                        '</select>' +
+                        '<button class="btn btn-primary btn-small" type="button" data-use="' + inv.id + '"' + deshabilitado + '>Usar</button>' +
+                    '</div>' +
+                '</article>'
+            );
+        }
+
+        async function cargarInventario() {
+            const cont = $('#inventory-list');
+            cont.innerHTML = '<span class="spinner"></span>Cargando...';
+
+            const res = await api('/api/inventory');
+
+            if (!res.ok) {
+                cont.innerHTML = '';
+                mostrarBanner($('#inventory-banner'), mensajeError(res, 'No se pudo cargar el inventario.'), 'error');
+                return;
+            }
+
+            state.inventory = lista(res.data);
+            cont.innerHTML = state.inventory.length
+                ? state.inventory.map(inventoryItemHtml).join('')
+                : '<p class="muted">Tu inventario está vacío. Compra ítems en la tienda.</p>';
+        }
+
+        async function abrirInventario() {
+            $('#modal-inventory').hidden = false;
+            ocultarBanner($('#inventory-banner'));
+            actualizarCoins(state.user && typeof state.user.coins === 'number' ? state.user.coins : 0);
+
+            await cargarArboles();
+            await cargarInventario();
+        }
+
+        async function usarItem(id) {
+            const select = document.querySelector('[data-use-select="' + id + '"]');
+            const treeId = select ? select.value : '';
+
+            if (!treeId) return;
+
+            const res = await api('/api/inventory/' + id + '/use', {
+                method: 'POST',
+                body: { tree_id: Number(treeId) },
+            });
+
+            const banner = $('#inventory-banner');
+
+            if (res.ok) {
+                mostrarBanner(banner, (res.data && res.data.message) || 'Ítem aplicado con éxito.', 'success');
+                await cargarArboles();
+                await cargarInventario();
+                await cargarUsuario();
+            } else {
+                mostrarBanner(banner, mensajeError(res, 'No se pudo usar el ítem.'), 'error');
+            }
+        }
+
         /* ---------------- Detalle ---------------- */
         async function abrirDetalle(id) {
             const body = $('#detail-body');
             const banner = $('#detail-banner');
 
+            state.detalleId = id;
             $('#modal-detail').hidden = false;
             ocultarBanner(banner);
             body.className = 'loading';
@@ -1011,13 +1440,30 @@
             }
 
             body.className = '';
-            body.innerHTML = detalleHtml(res.data);
+            body.innerHTML = detalleHtml(objeto(res.data));
+        }
+
+        function efectosHtml(a) {
+            const effects = Array.isArray(a.active_effects) ? a.active_effects : [];
+
+            if (effects.length === 0) return '';
+
+            return (
+                '<div class="detail-row"><span class="k">Efectos vigentes</span><span class="v">' +
+                    '<ul class="effects-list">' +
+                        effects.map((e) =>
+                            '<li>' + (e.name || e.type || 'Efecto') +
+                            '<br><span class="muted small">Hasta ' + formatearFecha(e.expires_at) + '</span></li>'
+                        ).join('') +
+                    '</ul>' +
+                '</span></div>'
+            );
         }
 
         function detalleHtml(a) {
             return (
                 '<div class="detail-head">' +
-                    '<strong>Árbol #' + a.id + '</strong>' +
+                    '<strong>' + nombreArbol(a) + '</strong>' +
                     badgeHtml(a.status) +
                 '</div>' +
                 '<div class="detail-row"><span class="k">Nivel</span><span class="v">' + (a.level ?? '—') + '</span></div>' +
@@ -1026,10 +1472,14 @@
                 barraHtml('Salud', a.health, 'health') +
                 barraHtml('Progreso', a.progress, 'progress') +
                 '<div class="detail-row"><span class="k">Estado</span><span class="v">' + tituloEstado(a.status) + '</span></div>' +
-                '<div class="detail-row"><span class="k">Tipo de semilla</span><span class="v">' + (a.seed_type_id ?? '—') + '</span></div>' +
+                '<div class="detail-row"><span class="k">Tipo de semilla</span><span class="v">' + (a.seed_type ? a.seed_type.name : '—') + '</span></div>' +
+                '<div class="detail-row"><span class="k">Recompensa de cosecha</span><span class="v">' + (a.seed_type && a.seed_type.harvest_coins != null ? a.seed_type.harvest_coins + ' monedas' : '—') + '</span></div>' +
                 '<div class="detail-row"><span class="k">Plantado</span><span class="v">' + formatearFecha(a.planted_at) + '</span></div>' +
                 '<div class="detail-row"><span class="k">Último cuidado</span><span class="v">' + formatearFecha(a.last_cared_at) + '</span></div>' +
-                '<div class="detail-row"><span class="k">Próximo cuidado</span><span class="v">' + formatearFecha(a.next_care_at) + '</span></div>'
+                '<div class="detail-row"><span class="k">Próximo cuidado</span><span class="v">' + formatearFecha(a.next_care_at) + '</span></div>' +
+                '<div class="detail-row"><span class="k">Cosechado</span><span class="v">' + formatearFecha(a.harvested_at) + '</span></div>' +
+                efectosHtml(a) +
+                accionesArbolHtml(a)
             );
         }
 
@@ -1056,13 +1506,42 @@
 
         $('#btn-logout').addEventListener('click', cerrarSesion);
         $('#btn-plant').addEventListener('click', abrirModalPlantar);
+        $('#btn-shop').addEventListener('click', abrirTienda);
+        $('#btn-inventory').addEventListener('click', abrirInventario);
 
         $('#trees-grid').addEventListener('click', (e) => {
+            const accion = e.target.closest('[data-action]');
+            if (accion) {
+                e.stopPropagation();
+                if (accion.dataset.action === 'care') cuidarArbol(accion.dataset.treeId);
+                if (accion.dataset.action === 'harvest') cosecharArbol(accion.dataset.treeId);
+                return;
+            }
+
             const tarjeta = e.target.closest('[data-tree-id]');
             if (tarjeta) abrirDetalle(tarjeta.dataset.treeId);
         });
 
+        $('#detail-body').addEventListener('click', (e) => {
+            const accion = e.target.closest('[data-action]');
+            if (!accion) return;
+
+            if (accion.dataset.action === 'care') cuidarArbol(accion.dataset.treeId);
+            if (accion.dataset.action === 'harvest') cosecharArbol(accion.dataset.treeId);
+        });
+
+        $('#shop-list').addEventListener('click', (e) => {
+            const boton = e.target.closest('[data-buy]');
+            if (boton) comprarItem(boton.dataset.buy);
+        });
+
+        $('#inventory-list').addEventListener('click', (e) => {
+            const boton = e.target.closest('[data-use]');
+            if (boton) usarItem(boton.dataset.use);
+        });
+
         $('#trees-grid').addEventListener('keydown', (e) => {
+            if (e.target.closest('[data-action]')) return;
             if ((e.key === 'Enter' || e.key === ' ') && e.target.dataset && e.target.dataset.treeId) {
                 e.preventDefault();
                 abrirDetalle(e.target.dataset.treeId);

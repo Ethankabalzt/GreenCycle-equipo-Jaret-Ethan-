@@ -19,7 +19,7 @@ class TreeCareController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($tree->id);
 
-            if (in_array($tree->status, [Tree::DEAD, Tree::MATURE], true)) {
+            if (in_array($tree->status, [Tree::DEAD, Tree::MATURE, Tree::HARVESTED], true)) {
                 return response()->json([
                     'error' => "El árbol está en estado {$tree->status} y no puede recibir más cuidados.",
                 ], 409);
