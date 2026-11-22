@@ -19,11 +19,17 @@ class Tree extends Model
 
     public const MATURE = 'MATURE';
 
+    public const HARVESTED = 'HARVESTED';
+
     public const MAX_LEVEL = 10;
 
     public const HEALTH_PER_CARE = 20;
 
     public const COOLDOWN_MINUTES = 60;
+
+    public const DECAY_HEALTH = 10;
+
+    public const DECAY_INTERVAL_HOURS = 24;
 
     protected $fillable = [
         'user_id', 'seed_type_id', 'level', 'health', 'progress', 'status',
@@ -51,5 +57,22 @@ class Tree extends Model
     public function cares(): HasMany
     {
         return $this->hasMany(Care::class);
+    }
+
+    public function activeEffects(): HasMany
+    {
+        return $this->hasMany(ActiveEffect::class);
+    }
+
+    /**
+     * Un árbol está protegido mientras tenga un efecto PROTECTOR vigente.
+     */
+    public function hasActiveProtector(): bool
+    {
+        return $this->activeEffects()
+            ->where('active_flag', true)
+            ->where('expires_at', '>', now())
+            ->whereHas('shopItem', fn ($query) => $query->where('type', ShopItem::PROTECTOR))
+            ->exists();
     }
 }
