@@ -1316,9 +1316,13 @@
         }
 
         async function comprarItem(id) {
+            const idempotencyKey = (window.crypto && crypto.randomUUID)
+                ? crypto.randomUUID()
+                : 'purchase-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+
             const res = await api('/api/shop/purchases', {
                 method: 'POST',
-                body: { shop_item_id: Number(id), quantity: 1 },
+                body: { shop_item_id: Number(id), quantity: 1, idempotency_key: idempotencyKey },
             });
 
             const banner = $('#shop-banner');

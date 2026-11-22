@@ -17,6 +17,35 @@ class PurchaseController extends Controller
     {
         return DB::transaction(function () use ($request) {
             $user = User::lockForUpdate()->findOrFail($request->user()->id);
+            $idempotencyKey = $request->validated('idempotency_key');
+
+            if ($idempotencyKey !== null) {
+                $existing = Purchase::where('user_id', $user->id)
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->first();
+
+                if ($existing) {
+                    $inventory = InventoryItem::with('shopItem')
+                        ->where('user_id', $user->id)
+                        ->where('shop_item_id', $existing->shop_item_id)
+                        ->first();
+
+                    return response()->json([
+                        'message' => 'La compra ya había sido procesada.',
+                        'coins' => $user->coins,
+                        'purchase' => [
+                            'id' => $existing->id,
+                            'quantity' => $existing->quantity,
+                            'total_cost' => $existing->total_cost,
+                            'purchased_at' => $existing->purchased_at->utc()->toIso8601ZuluString(),
+                        ],
+                        'inventory' => $inventory
+                            ? (new InventoryItemResource($inventory))->resolve()
+                            : null,
+                    ], 200);
+                }
+            }
+
             $item = ShopItem::findOrFail($request->validated('shop_item_id'));
             $quantity = (int) $request->validated('quantity');
             $total = $item->cost * $quantity;
@@ -44,6 +73,7 @@ class PurchaseController extends Controller
                 'shop_item_id' => $item->id,
                 'quantity' => $quantity,
                 'total_cost' => $total,
+                'idempotency_key' => $idempotencyKey,
                 'purchased_at' => now(),
             ]);
 

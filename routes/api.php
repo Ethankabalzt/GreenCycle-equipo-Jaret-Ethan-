@@ -30,5 +30,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/shop/purchases', [PurchaseController::class, 'store']);
 
     Route::get('/inventory', [InventoryController::class, 'index']);
-    Route::post('/inventory/{inventoryItem}/use', [InventoryController::class, 'useItem']);
+    Route::post('/inventory/{inventoryItem}/use', [InventoryController::class, 'useItem'])
+        ->missing(fn () => response()->json(['error' => 'El ítem de inventario no existe o ya fue consumido.'], 409));
 });

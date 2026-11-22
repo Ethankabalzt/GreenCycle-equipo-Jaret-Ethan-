@@ -16,6 +16,7 @@ class PurchaseRequest extends FormRequest
         return [
             'shop_item_id' => ['required', 'integer', 'exists:shop_items,id'],
             'quantity' => ['required', 'integer', 'min:1', 'max:10'],
+            'idempotency_key' => ['nullable', 'string', 'max:100'],
         ];
     }
 
